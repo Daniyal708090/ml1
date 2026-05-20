@@ -1,0 +1,237 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+// SQLite for local dev (no Docker/Postgres required). Use PostgreSQL in production.
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum InterviewTrack {
+  FRONTEND
+  BACKEND
+  FULLSTACK
+}
+
+enum InterviewMode {
+  PRACTICE
+  ANALYSIS
+  QUESTION_BANK
+  DEEP_DIVE
+  WEAK_SPOT
+  DREAM_JOB
+}
+
+enum InterviewStatus {
+  ACTIVE
+  COMPLETED
+  PAUSED
+}
+
+enum SeniorityLevel {
+  JUNIOR
+  MID
+  SENIOR
+  STAFF
+  PRINCIPAL
+}
+
+enum HiringSignal {
+  HIRE
+  LEAN_HIRE
+  LEAN_NO_HIRE
+  NO_HIRE
+}
+
+enum DifficultyLevel {
+  EASY
+  MEDIUM
+  HARD
+  EXPERT
+}
+
+model User {
+  id               String         @id @default(cuid())
+  email            String         @unique
+  passwordHash     String
+  name             String
+  avatar           String?
+  preferredTrack   InterviewTrack @default(FRONTEND)
+  targetLevel      SeniorityLevel @default(SENIOR)
+  targetCompanies  Json           @default("[]")
+  resumeUrl        String?
+  githubUsername   String?
+  leetcodeUsername String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  sessions   Session[]
+  interviews Interview[]
+  analytics  UserAnalytics?
+  progress   ProgressSnapshot[]
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  refreshToken String   @unique
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  userAgent    String?
+  ipAddress    String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Interview {
+  id                   String          @id @default(cuid())
+  userId               String
+  track                InterviewTrack
+  mode                 InterviewMode
+  status               InterviewStatus @default(ACTIVE)
+  companySimulationId  String?
+  startedAt            DateTime        @default(now())
+  completedAt          DateTime?
+  overallScore         Float?
+  seniorityLevel       SeniorityLevel?
+  hiringSignal         HiringSignal?
+  currentQuestionIndex Int             @default(0)
+
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companySimulation CompanySimulation? @relation(fields: [companySimulationId], references: [id])
+  messages          ChatMessage[]
+  answers           Answer[]
+  scores            Score[]
+
+  @@index([userId])
+  @@index([status])
+}
+
+model Question {
+  id          String          @id @default(cuid())
+  text        String
+  track       InterviewTrack
+  difficulty  DifficultyLevel
+  topics      Json
+  company     String?
+  idealAnswer String?
+  createdAt   DateTime        @default(now())
+
+  answers Answer[]
+}
+
+model Answer {
+  id          String   @id @default(cuid())
+  interviewId String
+  questionId  String?
+  content     String
+  codeSnippet String?
+  createdAt   DateTime @default(now())
+
+  interview Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  question  Question? @relation(fields: [questionId], references: [id])
+  analysis  Analysis?
+
+  @@index([interviewId])
+}
+
+model Analysis {
+  id                String         @id @default(cuid())
+  answerId          String         @unique
+  strengths         Json
+  gaps              Json
+  idealAnswer       String
+  followUpQuestions Json
+  coachingAdvice    Json
+  overallScore      Float
+  seniorityLevel    SeniorityLevel
+  hiringSignal      HiringSignal
+  behaviouralNotes  String?
+  createdAt         DateTime       @default(now())
+
+  answer Answer  @relation(fields: [answerId], references: [id], onDelete: Cascade)
+  scores Score[]
+}
+
+model Score {
+  id          String   @id @default(cuid())
+  interviewId String?
+  analysisId  String?
+  dimension   String
+  score       Float
+  maxScore    Float    @default(10)
+  createdAt   DateTime @default(now())
+
+  interview Interview? @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  analysis  Analysis?  @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+
+  @@index([interviewId])
+  @@index([analysisId])
+}
+
+model ChatMessage {
+  id          String   @id @default(cuid())
+  interviewId String
+  role        String
+  content     String
+  createdAt   DateTime @default(now())
+
+  interview Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+
+  @@index([interviewId])
+}
+
+model UserAnalytics {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  totalInterviews Int      @default(0)
+  averageScore    Float    @default(0)
+  strongTopics    Json     @default("[]")
+  weakTopics      Json     @default("[]")
+  lastActiveAt    DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ProgressSnapshot {
+  id     String          @id @default(cuid())
+  userId String
+  date   DateTime        @default(now())
+  score  Float
+  topic  String?
+  track  InterviewTrack?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, date])
+}
+
+model AiPrompt {
+  id           String          @id @default(cuid())
+  name         String          @unique
+  track        InterviewTrack?
+  mode         InterviewMode?
+  systemPrompt String
+  version      Int             @default(1)
+  isActive     Boolean         @default(true)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+}
+
+model CompanySimulation {
+  id          String          @id @default(cuid())
+  name        String          @unique
+  slug        String          @unique
+  description String?
+  focusAreas  Json
+  difficulty  DifficultyLevel @default(HARD)
+  promptAddon String?
+  logoUrl     String?
+  createdAt   DateTime        @default(now())
+
+  interviews Interview[]
+}

@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "smart-interview-events",
+  "title": "Interview Event",
+  "type": "object",
+  "required": ["event_type", "session_id", "timestamp", "payload"],
+  "properties": {
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "session.started",
+        "persona.updated",
+        "question.generated",
+        "candidate.response.received",
+        "signal.behavioral.inferred",
+        "signal.coding.inferred",
+        "difficulty.adjusted",
+        "followup.generated",
+        "session.ended",
+        "report.generated"
+      ]
+    },
+    "session_id": { "type": "string" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "trace_id": { "type": "string" },
+    "payload": { "type": "object", "additionalProperties": true }
+  },
+  "additionalProperties": false
+}
+

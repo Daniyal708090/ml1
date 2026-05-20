@@ -1,0 +1,57 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: smart_interview
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  api-gateway:
+    build:
+      context: ./services/api-gateway
+    environment:
+      PORT: 8080
+      AI_ORCHESTRATOR_URL: http://ai-orchestrator:8090
+      REDIS_URL: redis://redis:6379
+      SESSION_TTL_SECONDS: 86400
+    ports:
+      - "8080:8080"
+    depends_on:
+      - redis
+      - ai-orchestrator
+
+  ai-orchestrator:
+    build:
+      context: ./services/ai-orchestrator
+    environment:
+      PORT: 8090
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
+      OPENAI_JSON_MODE: ${OPENAI_JSON_MODE:-1}
+    ports:
+      - "8090:8090"
+
+  web:
+    build:
+      context: ./apps/web
+    environment:
+      NEXT_PUBLIC_API_GATEWAY_URL: http://localhost:8080
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api-gateway
+
+volumes:
+  pgdata:
